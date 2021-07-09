@@ -168,7 +168,7 @@ def fill_slot(search_id, user_id):
                 if (run != 'Empty'):
                     run_number = 'Run 3'
                     run = row.iloc[0, df.columns.get_loc('Run 3')]
-                    extra_time = row.iloc[0, df.columns.get_loc('time 3')]
+                    extra_time = row.iloc[0, df.columns.get_loc('Time 3')]
                     if run != 'Empty':
                         length = length + float(extra_time)
                         distance = distance + float(run)
