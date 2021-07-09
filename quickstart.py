@@ -167,6 +167,11 @@ def fill_slot(search_id, user_id):
                 run_number = 'Run 2'
                 if (run != 'Empty'):
                     run_number = 'Run 3'
+                    run = row.iloc[0, df.columns.get_loc('Run 3')]
+                    extra_time = row.iloc[0, df.columns.get_loc('time 3')]
+                    if run != 'Empty':
+                        length = length + float(extra_time)
+                        distance = distance + float(run)
             run_placement = chr(df.columns.get_loc(run_number) + 64)
             time_placement = chr(df.columns.get_loc(run_number) + 65)
             body['range'] = month + "!" + run_placement + value + ":" + time_placement + value
