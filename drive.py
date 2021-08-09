@@ -156,6 +156,7 @@ def create_log(user_id):
 
     # Store credentials in DB again
     db.update_google_token(user_id, creds)
+    db.insert_sheet_id(user_id, newSheetId)
 
 if __name__ == '__main__':
     create_log(65729793)
