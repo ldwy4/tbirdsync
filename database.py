@@ -197,9 +197,13 @@ def insert_sheet_id(id, sheet_id):
         database='main',
     )
     cursor = connection.cursor()
-    template = ("INSERT INTO sheet_id (id, sheet_id) "
-                "VALUES (%s, %s)")
-    data = (id, sheet_id)
+    if not query_sheet_id(id):
+        template = ("INSERT INTO sheet_id (id, sheet_id) "
+                    "VALUES (%s, %s)")
+        data = (id, sheet_id)
+    else:
+        template = ("UPDATE sheet_id set sheet_id=%s where id=%s")
+        data = (sheet_id, id)
     cursor.execute(template, data)
     connection.commit()
     cursor.close()
