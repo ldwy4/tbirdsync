@@ -365,14 +365,11 @@ def unpickle_pickle():
         with open('tmp/goog.pickle', 'rb') as token:
             tokens = pickle.load(token)
         for t in tokens:
-            print(t)
-            print(tokens[t])
 
 
 def view_runs():
     with open('/tmp/goog.pickle', 'rb') as token:
         tokens = pickle.load(token)
-        print(tokens)
 
 
 # Prints runs in SAMPLE_RANGE_NAME
@@ -458,7 +455,6 @@ def update_log(user_id, info):
 
     # convert values into dataframe
     df = pd.DataFrame(values, columns=values[0])
-    print(df)
     sleep = chr(df.columns.get_loc("Hours Slept") + 65)
     fatigue = chr(df.columns.get_loc("Fatigue(0-10)") + 65)
     stress = chr(df.columns.get_loc("Stress (0-5)") + 65)
@@ -501,14 +497,14 @@ def get_row(body, date, day, mon, year, service, value_input_option):
     result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID,
                                                  range=body['range']).execute()
     value = result.get('values', [])[0][0]
-    # TODO: rework these if statements
-    if value == '#N/A':
+    if value == '#VALUE!':
         if int(mon) == 1:
             month = calendar.month_name[12]
         else:
-            month = calendar.month_name[int(mon) - 1]
-        body['values'] = [
-            ['=MATCH(--\"' + day + "/" + mon + "/" + year + '\", ' + month + '!B:B, 0)']]
+            month = calendar.month_name[int(mon)]
+        if value == '#VALUE!':
+            body['values'] = [
+                ['=MATCH(--\"' + mon + "/" + day + "/" + year + '\", ' + month + '!B:B, 0)']]
         pprint(body['values'])
         request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=body['range'],
                                                          valueInputOption=value_input_option, body=body)
@@ -516,10 +512,33 @@ def get_row(body, date, day, mon, year, service, value_input_option):
         result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID,
                                                      range=body['range']).execute()
         value = result.get('values', [])[0][0]
-    if value == '#N/A':
+    # TODO: rework these if statements
+    if value == '#N/A' or value == '#VALUE!':
+        if int(mon) == 1:
+            month = calendar.month_name[12]
+        else:
+            month = calendar.month_name[int(mon) - 1]
+        if value == '#VALUE!':
+            body['values'] = [
+                ['=MATCH(--\"' + mon + "/" + day + "/" + year + '\", ' + month + '!B:B, 0)']]
+        else:
+            body['values'] = [
+                ['=MATCH(--\"' + day + "/" + mon + "/" + year + '\", ' + month + '!B:B, 0)']]
+        pprint(body['values'])
+        request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=body['range'],
+                                                         valueInputOption=value_input_option, body=body)
+        response = request.execute()
+        result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID,
+                                                     range=body['range']).execute()
+        value = result.get('values', [])[0][0]
+    if value == '#N/A' or value == '#VALUE!':
         month = calendar.month_name[int(mon) + 1]
-        body['values'] = [
-            ['=MATCH(--\"' + day + "/" + mon + "/" + year + '\", ' + month + '!B:B, 0)']]
+        if value == '#VALUE!':
+            body['values'] = [
+                ['=MATCH(--\"' + mon + "/" + day + "/" + year + '\", ' + month + '!B:B, 0)']]
+        else:
+            body['values'] = [
+                ['=MATCH(--\"' + day + "/" + mon + "/" + year + '\", ' + month + '!B:B, 0)']]
         pprint(body['values'])
         request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=body['range'],
                                                          valueInputOption=value_input_option, body=body)
@@ -549,8 +568,8 @@ if __name__ == '__main__':
     #     'date': '31/8/2020',
     # };
 
-    # fill_slot(5319925332, 34199943)
-    print(has_sheet(get_Goog_API(45934359)))
+    fill_slot(5816207148, 65729793)
+    # print(has_sheet(get_Goog_API(65729793)))
     # new_google_user(2, "4/0AY0e-g6QCmEaX6odh250fRhGqm8XEi4pqeDcr9hTbfEEhXmIPvH8mTF_lZ5qUgNi7kBkPw")
     # print(get_url())
     # print(get_Goog_API(34199943))
