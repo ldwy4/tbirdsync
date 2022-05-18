@@ -110,83 +110,50 @@ def fill_slot(search_id, user_id):
     df = df.replace([''], ['Empty'])
     df = df.replace([None], ['Empty'])
     row = df.loc[df['Date'] == day + "/" + mon + "/" + year]
-    # For Rhys Kramer's template
-    if "Time 1" not in df.columns:
-        pace_req = {'majorDimension': 'ROWS'}
-        if activitie_info['type'] == 'Run':
-            time_col = chr(df.columns.get_loc('Min Running') + 65)
-            prev_time = row.iloc[0, df.columns.get_loc('Min Running')]
-            row = df.loc[df['Date'] == day + "/" + mon + "/" + year]
-            run = row.iloc[0, df.columns.get_loc('Run 1')]
-            placement = chr(df.columns.get_loc('Run 1') + 65)
+    if (activitie_info['type'] == 'Run'):
+        row = df.loc[df['Date'] == day + "/" + mon + "/" + year]
+        run = row.iloc[0, df.columns.get_loc('Run 1')]
+        run_number = 'Run 1'
+        if (run != 'Empty'):
+            print('Run 1 is filled already')
+            run = row.iloc[0, df.columns.get_loc('Run 2')]
+            run_number = 'Run 2'
             if (run != 'Empty'):
-                print('Run 1 is filled already')
-                run = row.iloc[0, df.columns.get_loc('Run 2')]
-                placement = chr(df.columns.get_loc('Run 2') + 65)
-                if (run != 'Empty'):
-                    run = row.iloc[0, df.columns.get_loc('Run 3')]
-                    placement = chr(df.columns.get_loc('Run 3') + 65)
-                    if (run != 'Empty'):
-                        placement = chr(df.columns.get_loc('Run 4') + 65)
-            body['range'] = month + "!" + placement + value
-            body['values'] = [[distance]]
-            timeUpdate['range'] = month + "!" + time_col + value
-            if prev_time != 'Empty':
-                length += float(prev_time)
-            timeUpdate['values'] = [[length]]
-            request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID,
-                                                             range=timeUpdate['range'],
-                                                             valueInputOption=value_input_option,
-                                                             body=timeUpdate)
-            response = request.execute()
-            km_total = row.iloc[0, df.columns.get_loc('Km Running')]
-            km_total = float(km_total) + distance
-            pace = str(math.trunc(length / km_total)) + ':' + str(
-                math.trunc(((length / km_total) % 1) * 60)).zfill(2)
-            pace_req['range'] = month + "!" + chr(df.columns.get_loc('Pace') + 65) + value
-            pace_req['values'] = [[pace]]
-            request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID,
-                                                             range=pace_req['range'],
-                                                             valueInputOption=value_input_option, body=pace_req)
-            response = request.execute()
-        else:
-            time_placement = chr(df.columns.get_loc('Min X-Train') + 65)
-            run_placement = chr(df.columns.get_loc('X-Train Km Equiv') + 66)
-            body['values'] = [[length, round(length / 13.5, 1)]]
-            body['range'] = month + '!' + time_placement + value + ":" + run_placement + value
-            print("Activity has been logged")
+                run_number = 'Run 3'
+                run = row.iloc[0, df.columns.get_loc('Run 3')]
+                extra_time = row.iloc[0, df.columns.get_loc('Time 3')]
+                if run != 'Empty':
+                    length = length + float(extra_time)
+                    distance = distance + float(run)
+        run_placement = chr(df.columns.get_loc(run_number) + 64)
+        time_placement = chr(df.columns.get_loc(run_number) + 65)
+        body['range'] = month + "!" + run_placement + value + ":" + time_placement + value
+        body['values'] = [[length, distance]]
+        print("Run being logged...")
     else:
-        # For Personal Training log
-        if (activitie_info['type'] == 'Run'):
-            row = df.loc[df['Date'] == day + "/" + mon + "/" + year]
-            run = row.iloc[0, df.columns.get_loc('Run 1')]
-            run_number = 'Run 1'
-            if (run != 'Empty'):
-                print('Run 1 is filled already')
-                run = row.iloc[0, df.columns.get_loc('Run 2')]
-                run_number = 'Run 2'
-                if (run != 'Empty'):
-                    run_number = 'Run 3'
-                    run = row.iloc[0, df.columns.get_loc('Run 3')]
-                    extra_time = row.iloc[0, df.columns.get_loc('Time 3')]
-                    if run != 'Empty':
-                        length = length + float(extra_time)
-                        distance = distance + float(run)
-            run_placement = chr(df.columns.get_loc(run_number) + 64)
-            time_placement = chr(df.columns.get_loc(run_number) + 65)
-            body['range'] = month + "!" + run_placement + value + ":" + time_placement + value
-            body['values'] = [[length, distance]]
-        else:
-            body['values'] = [[length, round(length / 13.5, 1)]]
-            body['range'] = month + "!R" + value + ":S" + value
-            print("Activity has been logged")
+        time_placement = chr(df.columns.get_loc('Time X-Train') + 65)
+        extra_time = row.iloc[0, df.columns.get_loc('Time X-Train')]
+        if extra_time != 'Empty':
+            length += float(extra_time)
+        body['values'] = [[length]]
+        body['range'] = month + "!" + time_placement + value
+        print("Activity being logged...")
     request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=body['range'],
                                                      valueInputOption=value_input_option, body=body)
     response = request.execute()
-    print("Run has been logged")
     db.update_status(search_id, 'success')
     return True
 
+# Fills training log with activity with search_id
+def upload_old_activities(user_id):
+    strava_tokens = get_strava_api(user_id)
+    access_token = strava_tokens['access_token']
+    header = {'Authorization': 'Bearer ' + access_token}
+    params = {'after': datetime.datetime(2022, 1, 3, 0, 0).timestamp(), 'per_page': 120}
+    activities_url = "https://www.strava.com/api/v3/athlete/activities/"
+    activitie_info = requests.get(activities_url, headers=header, params=params).json()
+    for a in activitie_info:
+        fill_slot(a['id'], user_id)
 
 def create_sheet(service):
     requests = []
@@ -315,7 +282,6 @@ def get_Goog_API(user_id):
     service = build('sheets', 'v4', credentials=credentials)
 
     creds['expires_at'] = expires
-    pprint(creds)
     # Store credentials in DB again
     db.update_google_token(user_id, creds)
 
@@ -364,8 +330,6 @@ def unpickle_pickle():
     if os.path.exists('tmp/goog.pickle'):
         with open('tmp/goog.pickle', 'rb') as token:
             tokens = pickle.load(token)
-        for t in tokens:
-
 
 def view_runs():
     with open('/tmp/goog.pickle', 'rb') as token:
@@ -568,10 +532,10 @@ if __name__ == '__main__':
     #     'date': '31/8/2020',
     # };
 
-    fill_slot(5816207148, 65729793)
-    # print(has_sheet(get_Goog_API(65729793)))
+    # fill_slot(5816207148, 65729793)
+    # print(has_sheet(get_Goog_API(45934359)))
     # new_google_user(2, "4/0AY0e-g6QCmEaX6odh250fRhGqm8XEi4pqeDcr9hTbfEEhXmIPvH8mTF_lZ5qUgNi7kBkPw")
-    # print(get_url())
+    upload_old_activities(65729793)
     # print(get_Goog_API(34199943))
     # unpickle_pickle()
     # create_sheet(get_Goog_API(45934359), '1K9_3xLrmKyoCVkwjh8GYi6zKAKjXWLy7MwQ2guYLCt8')
@@ -620,7 +584,6 @@ if __name__ == '__main__':
 #         result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
 #                                     range=body['range']).execute()
 #         value = result.get('values', [])[0][0]
-#         # TODO: rework these if statements
 #         if value == '#N/A':
 #             month = calendar.month_name[int(date[6])-1]
 #             body['values'] = [

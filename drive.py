@@ -103,7 +103,8 @@ def create_log(user_id):
     creds['expires_at'] = expires
     spreadsheet = {
         'properties': {
-            'title': '2021/2022 Training Log'
+            'title': '2021/2022 Training Log',
+            'locale': 'en_GB'
         }
     }
     request = service.spreadsheets().create(body=spreadsheet, fields='spreadsheetId').execute()
@@ -157,6 +158,7 @@ def create_log(user_id):
     # Store credentials in DB again
     db.update_google_token(user_id, creds)
     db.insert_sheet_id(user_id, newSheetId)
+    # api.upload_old_activities(user_id)
 
 if __name__ == '__main__':
     create_log(65729793)
