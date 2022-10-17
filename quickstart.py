@@ -1,28 +1,20 @@
 from __future__ import print_function
 import pickle
 import os.path
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import Flow
-from google_auth_oauthlib.flow import InstalledAppFlow
-import google.oauth2.credentials
-from google.auth.transport.requests import Request
 from pprint import pprint
 import database as db
-import urllib3
-import json
 import requests
 import time
 import calendar
-import math
 import datetime
 import pandas as pd
 
 # create an instance of the API class
+from google_info import get_sheet_id, get_Goog_API
+from strava import get_strava_api
 
 athlete_url = " https://www.strava.com/api/v3/athlete"
-auth_url = "https://www.strava.com/oauth/token"
 authorize_url = "https://www.strava.com/oauth/authorize"
-goog_url = 'https://www.googleapis.com/oauth2/v4/token'
 
 payload = {
     'client_id': "51156",
@@ -40,9 +32,7 @@ other_payload = {
     'f': "json"
 }
 
-# If modifying these scopes, delete the file token.pickle.
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets',
-          'https://www.googleapis.com/auth/drive.metadata.readonly']
+
 
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = '11I6tlT0e2M0ld11-MEUzRG7bdnRps-pDldmo6-5FgnY'
@@ -187,143 +177,6 @@ def has_sheet(service):
         if sheet.get("properties", {}).get("title", {}) == 'LOOKUP_SHEET':
             title = sheet.get("properties", {}).get("title", {})
     return title != None
-
-
-def get_strava_api(user_id):
-    """Getting info from strava api
-    """
-    # If access_token has expired then
-    # use the refresh_token to get the new access_token
-    expired = False
-    athlete = db.query_strava_token(user_id)
-    if athlete['expires_at'] < time.time():
-        # Make Strava auth API call with current refresh token
-        res = requests.post(
-            url=auth_url,
-            data={
-                'client_id': '51156',
-                'client_secret': 'f5b3cb6c2ff9412a7928d3c36e4a11139d351885',
-                'grant_type': 'refresh_token',
-                'refresh_token': athlete['refresh_token']
-            }
-        )
-        # Save response as json in new variable
-        new_strava_tokens = res.json()
-        new_strava_tokens["id"] = user_id
-        expired = True
-    # if recieved new token
-    if expired:
-        db.update_strava_token(new_strava_tokens)
-    strava_tokens = db.query_strava_token(user_id)
-    return strava_tokens
-
-
-def new_strava_user(code):
-    """Getting info from strava api
-    """
-    res = requests.post(
-        url=auth_url,
-        data={
-            'client_id': '51156',
-            'client_secret': 'f5b3cb6c2ff9412a7928d3c36e4a11139d351885',
-            'code': code,
-            'grant_type': 'authorization_code',
-        }
-    )
-    new_strava_tokens = res.json()
-    id = new_strava_tokens['athlete']['id']
-    del new_strava_tokens['athlete']
-    new_strava_tokens['id'] = id
-    db.insert_strava_token(new_strava_tokens)
-    return str(new_strava_tokens['id'])
-
-
-def save_sheet_id(user_id, sheet_id):
-    db.insert_sheet_id(user_id, sheet_id)
-
-
-def get_sheet_id(user_id):
-    return db.query_sheet_id(user_id)
-
-
-def get_Goog_API(user_id):
-    """Writing info to sheets api"""
-
-    # Get token from DB
-    creds = db.query_google_token(user_id)
-    expires = creds['expires_at']
-    # If there are no (valid) credentials available, let the user log in.
-    if creds['expires_at'].timestamp() < time.time():
-        res = requests.post(
-            url=goog_url,
-            data={
-                'client_id': '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com',
-                'client_secret': 'Rm4v_Gt1yTe9ZSpD5AX1VONS',
-                'grant_type': 'refresh_token',
-                'refresh_token': creds['refresh_token'],
-                'access_type': 'offline',
-                'prompt': 'consent'
-            }
-        )
-        creds['token'] = res.json()['access_token']
-        expires = datetime.datetime.fromtimestamp(time.time() + res.json()['expires_in'])
-        db.update_google_token(user_id, creds)
-
-    creds['token_uri'] = "https://oauth2.googleapis.com/token"
-    creds['client_id'] = '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com'
-    creds['client_secret'] = 'Rm4v_Gt1yTe9ZSpD5AX1VONS'
-    creds['scopes'] = SCOPES
-    credentials = google.oauth2.credentials.Credentials(token=creds['token'],
-                                                        refresh_token=creds['refresh_token'],
-                                                        token_uri=creds['token_uri'],
-                                                        client_id=creds['client_id'] ,
-                                                        client_secret=creds['client_secret'],
-                                                        scopes= SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
-
-    creds['expires_at'] = expires
-    # Store credentials in DB again
-    db.update_google_token(user_id, creds)
-
-    return service
-
-
-def new_google_user_local(id):
-    """Writing info to sheets api"""
-    tokens = None
-    flow = InstalledAppFlow.from_client_secrets_file(
-        'credentials.json', SCOPES)
-    creds = flow.run_local_server(port=8080)
-    if os.path.exists('/tmp/goog.pickle'):
-        with open('/tmp/goog.pickle', 'rb') as token:
-            tokens = pickle.load(token)
-            tokens[id] = creds
-    with open('/tmp/goog.pickle', 'wb') as token:
-        if not tokens:
-            tokens = {id: creds}
-        pickle.dump(tokens, token)
-
-
-def new_google_user(id, auth_res):
-    """Writing info to sheets api"""
-    # tokens = None
-    flow = Flow.from_client_secrets_file(
-        'credentials.json', SCOPES, redirect_uri="https://api.tbirdsync.com/google")
-    flow.fetch_token(authorization_response=auth_res)
-    credentials = flow.credentials
-    creds = {'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'expires_at': datetime.datetime.fromtimestamp(time.time() + 3600)}
-    db.insert_google_token(id, creds)
-    return str(id)
-
-
-def get_url():
-    """Writing info to sheets api"""
-    tokens = None
-    flow = Flow.from_client_secrets_file(
-        'credentials.json', SCOPES, redirect_uri="https://api.tbirdsync.com/google")
-    return flow.authorization_url(access_type='offline', include_granted_scope='true', prompt='consent')[0]
 
 
 def unpickle_pickle():
