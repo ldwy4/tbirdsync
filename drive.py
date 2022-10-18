@@ -3,7 +3,7 @@ import requests
 import time
 import datetime
 from googleapiclient.discovery import build
-import database as db
+import dynamo
 import google.oauth2.credentials
 from google.oauth2.credentials import Credentials
 import quickstart as api
@@ -13,35 +13,37 @@ goog_url = 'https://www.googleapis.com/oauth2/v4/token'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive.metadata.readonly']
 
+
 def main(user_id):
     """Shows basic usage of the Drive v3 API.
     Prints the names and ids of the first 10 files the user has access to.
     """
-    creds = db.query_google_token(user_id)
-    expires = creds['expires_at']
+    creds = dynamo.query_google_token(user_id)
+    print(creds)
+    expires = creds['google_expires_at']
     # If there are no (valid) credentials available, let the user log in.
-    if creds['expires_at'].timestamp() < time.time():
+    if creds['google_expires_at'] < time.time():
         res = requests.post(
             url=goog_url,
             data={
                 'client_id': '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com',
                 'client_secret': 'Rm4v_Gt1yTe9ZSpD5AX1VONS',
                 'grant_type': 'refresh_token',
-                'refresh_token': creds['refresh_token'],
+                'refresh_token': creds['google_refresh_token'],
                 'access_type': 'offline',
                 'prompt': 'consent'
             }
         )
-        creds['token'] = res.json()['access_token']
+        creds['google_access_token'] = res.json()['access_token']
         expires = datetime.datetime.fromtimestamp(time.time() + res.json()['expires_in'])
-        db.update_google_token(user_id, creds)
+        dynamo.update_user_with_google_info(user_id, creds)
 
     creds['token_uri'] = "https://oauth2.googleapis.com/token"
     creds['client_id'] = '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com'
     creds['client_secret'] = 'Rm4v_Gt1yTe9ZSpD5AX1VONS'
     creds['scopes'] = SCOPES
-    credentials = google.oauth2.credentials.Credentials(token=creds['token'],
-                                                        refresh_token=creds['refresh_token'],
+    credentials = google.oauth2.credentials.Credentials(token=creds['google_access_token'],
+                                                        refresh_token=creds['google_refresh_token'],
                                                         token_uri=creds['token_uri'],
                                                         client_id=creds['client_id'],
                                                         client_secret=creds['client_secret'],
@@ -50,7 +52,7 @@ def main(user_id):
     creds['expires_at'] = expires
 
     # Store credentials in DB again
-    db.update_google_token(user_id, creds)
+    dynamo.update_user_with_google_info(user_id, creds)
 
     # Call the Drive v3 API
     results = service.files().list(
@@ -68,33 +70,34 @@ def main(user_id):
             files.append([item['name'], item['id']])
     return files
 
+
 def create_log(user_id):
     SPREADSHEET_ID = '1AQkyIl87SFQ2ItJIBuBBH-npsmR9fPHcuBPngLvQ_Lk'
-    creds = db.query_google_token(user_id)
-    expires = creds['expires_at']
+    creds = dynamo.query_google_token(user_id)
+    expires = creds['google_expires_at']
     # If there are no (valid) credentials available, let the user log in.
-    if creds['expires_at'].timestamp() < time.time():
+    if creds['google_expires_at'] < time.time():
         res = requests.post(
             url=goog_url,
             data={
                 'client_id': '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com',
                 'client_secret': 'Rm4v_Gt1yTe9ZSpD5AX1VONS',
                 'grant_type': 'refresh_token',
-                'refresh_token': creds['refresh_token'],
+                'refresh_token': creds['google_refresh_token'],
                 'access_type': 'offline',
                 'prompt': 'consent'
             }
         )
-        creds['token'] = res.json()['access_token']
-        expires = datetime.datetime.fromtimestamp(time.time() + res.json()['expires_in'])
-        db.update_google_token(user_id, creds)
+        creds['google_access_token'] = res.json()['access_token']
+        expires = time.time() + res.json()['expires_in']
+        dynamo.update_user_with_google_info(user_id, creds)
 
     creds['token_uri'] = "https://oauth2.googleapis.com/token"
     creds['client_id'] = '882547647274-nfh6efs7c3q69r67fhtjkonm8o4b15ia.apps.googleusercontent.com'
     creds['client_secret'] = 'Rm4v_Gt1yTe9ZSpD5AX1VONS'
     creds['scopes'] = SCOPES
-    credentials = google.oauth2.credentials.Credentials(token=creds['token'],
-                                                        refresh_token=creds['refresh_token'],
+    credentials = google.oauth2.credentials.Credentials(token=creds['google_access_token'],
+                                                        refresh_token=creds['google_refresh_token'],
                                                         token_uri=creds['token_uri'],
                                                         client_id=creds['client_id'],
                                                         client_secret=creds['client_secret'],
@@ -156,9 +159,9 @@ def create_log(user_id):
     update = service.spreadsheets().batchUpdate(spreadsheetId=newSheetId, body=title_body).execute()
 
     # Store credentials in DB again
-    db.update_google_token(user_id, creds)
-    db.insert_sheet_id(user_id, newSheetId)
+    dynamo.update_user_with_google_info(user_id, creds)
+    dynamo.save_sheet_id(user_id, newSheetId)
     # api.upload_old_activities(user_id)
 
 if __name__ == '__main__':
-    create_log(65729793)
+    main(45934359)

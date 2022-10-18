@@ -36,10 +36,7 @@ def api_post():
             print('It is working!', file=sys.stderr)
             info = json.dumps(request.json)
             print(request.json['object_id'], file=sys.stderr)
-            logged = api.fill_slot(request.json['object_id'], request.json['owner_id'])
-            if not logged:
-                time.sleep(90)
-                api.fill_slot(request.json['object_id'], request.json['owner_id'])
+            api.fill_slot(request.json['object_id'], request.json['owner_id'])
             return info
 
     return "Error"

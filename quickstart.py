@@ -2,7 +2,6 @@ from __future__ import print_function
 import pickle
 import os.path
 from pprint import pprint
-import database as db
 import requests
 import time
 import calendar
@@ -43,9 +42,7 @@ SAMPLE_RANGE_NAME = 'July!B2:Z30'
 def fill_slot(search_id, user_id):
     print('search id:')
     print(search_id)
-    if db.check_status(search_id):
-        print('already logged')
-        return True
+
     strava_tokens = get_strava_api(user_id)
     access_token = strava_tokens['access_token']
     header = {'Authorization': 'Bearer ' + access_token}
@@ -53,12 +50,6 @@ def fill_slot(search_id, user_id):
     activities_url = "https://www.strava.com/api/v3/activities/" + str(search_id)
     activitie_info = requests.get(activities_url, headers=header).json()
 
-    db.insert_status(search_id, 'pending')
-
-    if 'id' not in activitie_info:
-        print('failed to log')
-        db.update_status(search_id, 'failed')
-        return False
 
     service = get_Goog_API(user_id)
 
@@ -131,8 +122,6 @@ def fill_slot(search_id, user_id):
     request = service.spreadsheets().values().update(spreadsheetId=SPREADSHEET_ID, range=body['range'],
                                                      valueInputOption=value_input_option, body=body)
     response = request.execute()
-    db.update_status(search_id, 'success')
-    return True
 
 # Fills training log with activity with search_id
 def upload_old_activities(user_id):
@@ -388,8 +377,9 @@ if __name__ == '__main__':
     # fill_slot(5816207148, 65729793)
     # print(has_sheet(get_Goog_API(45934359)))
     # new_google_user(2, "4/0AY0e-g6QCmEaX6odh250fRhGqm8XEi4pqeDcr9hTbfEEhXmIPvH8mTF_lZ5qUgNi7kBkPw")
-    upload_old_activities(65729793)
+    # upload_old_activities(65729793)
     # print(get_Goog_API(34199943))
+    get_Goog_API(45934359)
     # unpickle_pickle()
     # create_sheet(get_Goog_API(45934359), '1K9_3xLrmKyoCVkwjh8GYi6zKAKjXWLy7MwQ2guYLCt8')
     # save_sheet_id(45934359, '11I6tlT0e2M0ld11-MEUzRG7bdnRps-pDldmo6-5FgnY')

@@ -2,7 +2,6 @@ import time
 
 import requests
 
-import database as db
 import dynamo
 auth_url = "https://www.strava.com/oauth/token"
 
@@ -13,7 +12,7 @@ def get_strava_api(user_id):
     # If access_token has expired then
     # use the refresh_token to get the new access_token
     expired = False
-    athlete = db.query_strava_token(user_id)
+    athlete = dynamo.query_strava_token(user_id)
     if athlete['expires_at'] < time.time():
         # Make Strava auth API call with current refresh token
         res = requests.post(
@@ -32,7 +31,7 @@ def get_strava_api(user_id):
     # if recieved new token
     if expired:
         dynamo.update_user_strava_token(new_strava_tokens)
-    strava_tokens = db.query_strava_token(user_id)
+    strava_tokens = dynamo.query_strava_token(user_id)
     return strava_tokens
 
 
