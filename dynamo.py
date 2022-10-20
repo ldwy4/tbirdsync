@@ -1,44 +1,45 @@
-import json
 
 import boto3
+import time
 
 TABLE_NAME = "tbirdSync"
+ACTIVITY_TABLE = "activities"
 STRAVA_ATTRIBUTES = 'id,access_token,refresh_token,expires_at'
 GOOGLE_ATTRIBUTES = 'id,google_access_token,google_refresh_token,google_expires_at'
-
+SHEET_ID = 'sheet_id'
 # get table object containing user data for TbirdSync
-def get_table():
+def get_table(name):
     # Get the service resource.
     dynamodb = boto3.resource('dynamodb')
 
     # Create the DynamoDB table.
-    table = dynamodb.Table(TABLE_NAME)
+    table = dynamodb.Table(name)
     return table
 
 
 # insert new user into db
 def insert_user(creds):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     print(creds)
     table.put_item(Item=creds)
 
 
 def query_strava_token(user_id):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     strava_token = table.get_item(Key={'id': user_id},
                                   ProjectionExpression=STRAVA_ATTRIBUTES)
     return strava_token['Item']
 
 
 def query_google_token(user_id):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     google_token = table.get_item(Key={'id': user_id},
                                   ProjectionExpression=GOOGLE_ATTRIBUTES)
     return google_token['Item']
 
 
 def update_user_strava_token(creds):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     table.update_item(
         Key={
             'id': creds['id']
@@ -54,7 +55,7 @@ def update_user_strava_token(creds):
 
 
 def update_user_with_google_info(id_num, creds):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     table.update_item(
         Key={
             'id': id_num,
@@ -69,7 +70,7 @@ def update_user_with_google_info(id_num, creds):
 
 
 def query_user(id_num):
-    table = get_table()
+    table = get_table(TABLE_NAME)
     user = table.get_item(Key={'id': id_num})
     return user
 
@@ -81,7 +82,7 @@ def save_sheet_id(user_id, sheet_id):
     :param user_id: key for user object
     :param sheet_id: id of user sheet
     """
-    table = get_table()
+    table = get_table(TABLE_NAME)
     table.update_item(
         Key={
             'id': user_id,
@@ -93,17 +94,27 @@ def save_sheet_id(user_id, sheet_id):
     )
 
 
-# TODO: implement
 def get_sheet_id(user_id):
     """
-    save sheet to user item in table
+    get user's sheet id
 
     :param user_id: key for user object
-    :param sheet_id: id of user sheet
     """
-    table = get_table()
-    user = table.get_item(Key={ 'id': user_id})
-    print(user['Item']['access_token'])
+    table = get_table(TABLE_NAME)
+    user = table.get_item(Key={ 'id': user_id}, ProjectionExpression=SHEET_ID)
+    return user['Item'][SHEET_ID]
+
+
+def save_activity(activity_id):
+    table = get_table(ACTIVITY_TABLE)
+    table.put_item(Item={'activity_id': activity_id,
+                         'expires_at': int(time.time()) + 3600*6})
+
+
+def get_activity_status(activity_id):
+    table = get_table(ACTIVITY_TABLE)
+    activity_item = table.get_item(Key={'activity_id': activity_id})
+    return activity_item
 
 
 if __name__ == '__main__':
@@ -118,7 +129,8 @@ if __name__ == '__main__':
     #     'scope': ['https://www.googleapis.com/auth/drive.metadata.readonly',
     #               'https://www.googleapis.com/auth/spreadsheets'], 'token_type': 'Bearer',
     #     'expires_at': 1666041780.8730166}
-    print(query_strava_token(45934359))
+    # print(query_strava_token(45934359))
+    print(get_activity_status(1))
     # print(query_user(45934359))
     # update_user_with_google_info()
     # cred = {'id': 45934359, 'expires_in': 11329,

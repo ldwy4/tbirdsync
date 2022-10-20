@@ -20,7 +20,7 @@ def save_sheet_id(user_id, sheet_id):
 
 
 def get_sheet_id(user_id):
-    return dynamo.query_sheet_id(user_id)
+    return dynamo.get_sheet_id(user_id)
 
 
 def get_Goog_API(user_id):
@@ -43,7 +43,7 @@ def get_Goog_API(user_id):
             }
         )
         creds['google_access_token'] = res.json()['access_token']
-        expires = datetime.datetime.fromtimestamp(time.time() + res.json()['expires_in'])
+        expires = time.time() + res.json()['expires_in']
         dynamo.update_user_with_google_info(user_id, creds)
 
     creds['token_uri'] = "https://oauth2.googleapis.com/token"
