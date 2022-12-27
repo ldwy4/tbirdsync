@@ -72,7 +72,7 @@ def main(user_id):
 
 
 def create_log(user_id):
-    SPREADSHEET_ID = '1AQkyIl87SFQ2ItJIBuBBH-npsmR9fPHcuBPngLvQ_Lk'
+    SPREADSHEET_ID = '1_-8WF_r3A6504TqhXjbo2Pf6ZTY3blps2c6ht5-x-rw'
     creds = dynamo.query_google_token(user_id)
     expires = creds['google_expires_at']
     # If there are no (valid) credentials available, let the user log in.
